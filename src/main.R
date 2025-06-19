@@ -7,7 +7,7 @@ suppressMessages({
 current_dir <- dirname(sys.frame(1)$ofile)
 cme_data_path <- file.path(current_dir, "../data/CME_raw_data.csv")
 
-# Load ES futures data
+# Load CME futures data
 futures_df <- read_csv(cme_data_path, show_col_types = FALSE) %>%
   mutate(date = as.Date(ts_event)) %>%
   select(
@@ -21,13 +21,7 @@ futures_df <- read_csv(cme_data_path, show_col_types = FALSE) %>%
 futures_df <- futures_df %>%
   filter(!grepl("-", Ticker))
 
-# Summarize the data by ticker
-ticker_summary_df <- futures_df %>%
-  group_by(Ticker) %>%
-  summarise(
-    Start_Date = min(Date),
-    End_Date = max(Date),
-    Total_Records = n(),
-    .groups = "drop"
-  ) %>%
-  arrange(Ticker)
+# Extract underlying future
+futures_df <- futures_df %>%
+  mutate(Underlying = gsub("..$", "", Ticker)) %>%
+  select(Date, Ticker, Underlying, Price, Volume)
