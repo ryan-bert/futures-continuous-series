@@ -19,9 +19,18 @@ futures_df <- read_csv(cme_data_path, show_col_types = FALSE) %>%
 
 # Exclude spreads
 futures_df <- futures_df %>%
-  filter(!grepl("-", Ticker))
+  filter(!grepl("-", Ticker)) %>%
+  filter(!grepl(":", Ticker))
 
 # Extract underlying future
 futures_df <- futures_df %>%
   mutate(Underlying = gsub("..$", "", Ticker)) %>%
   select(Date, Ticker, Underlying, Price, Volume)
+
+# Find biggest volume contracts on each day
+liquid_contract_df <- futures_df %>%
+  group_by(Date, Underlying) %>%
+  slice(which.max(Volume)) %>%
+  ungroup()
+
+#! Include 2 year-digits in Ticker (to avoid duplicates)
