@@ -66,6 +66,10 @@ futures_df <- futures_df %>%
   filter(!grepl("-", Ticker)) %>%
   filter(!grepl(":", Ticker))
 
+# Remove weekend data
+futures_df <- futures_df %>%
+  filter(wday(Date) %in% 2:6)
+
 ######################### EXTRACT CONTRACT DATA #########################
 
 # Extract year code (last 1 or 2 numbers)
@@ -136,7 +140,36 @@ run_length_df <- run_length_df %>%
   ) %>%
   arrange(Underlying, Start_Date)
 
+######################## DETERMINE REQUIRED DATA ########################
+
+# Same day data for liquid contracts
+required_df <- liquid_df %>%
+  select(Date, Ticker, Underlying)
+
+# Prior-day data for liquid contracts
+prior_day_df <- liquid_df %>%
+  select(Date, Ticker, Underlying) %>%
+  mutate(Date = case_when(
+    wday(Date) %in% 3:6 ~ Date - 1,   # Tue - Fri
+    wday(Date) == 2 ~ Date - 3,       # Mon (previous Friday)
+    TRUE ~ NA                         # Sat/Sun (shouldn't be any)
+  ))
+
+# Combine current and prior-day required data
+required_df <- required_df %>%
+  bind_rows(prior_day_df)
+
 ######################### IDENTIFY MISSING DATA #########################
+
+# Summmaise date ranges for each ticker
+date_summary_df <- futures_df %>%
+  group_by(Ticker) %>%
+  summarise(
+    Start_Date = min(Date),
+    End_Date = max(Date),
+    Total_Days = n_distinct(Date),
+    .groups = "drop"
+  )
 
 # Generate a complete set of trading dates
 all_dates <- seq.Date(from = min(futures_df$Date), to = max(futures_df$Date), by = "day")
@@ -148,11 +181,11 @@ complete_df <- futures_df %>%
   complete(Date = all_dates) %>%
   ungroup()
 
-# Remove initial NA values for each ticker
+# Remove anything out of original date range
 complete_df <- complete_df %>%
-  group_by(Ticker) %>%
-  filter(cumsum(!is.na(Price)) > 0) %>%
-  ungroup()
+  left_join(date_summary_df, by = "Ticker") %>%
+  filter(Date >= Start_Date & Date <= End_Date) %>%
+  select(-Start_Date, -End_Date)
 
 # Identify missing data points
 missing_data_df <- complete_df %>%
