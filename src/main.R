@@ -1,6 +1,7 @@
 suppressMessages({
-  library(dplyr)
   library(readr)
+  library(dplyr)
+  library(stringr)
 })
 
 ########################### LOAD & FILTER DATA ###########################
@@ -26,40 +27,24 @@ futures_df <- futures_df %>%
 
 ######################### FORMAT CONTRACT NAMES #########################
 
+# Extract year code (last 1 or 2 numbers)
+futures_df <- futures_df %>%
+  mutate(
+    Year_Code  = str_extract(Ticker, "[0-9]{1,2}$") %>% as.integer()
+  )
 
+# Extract month code (single letter followed by 1 or 2 digits)
+futures_df <- futures_df %>%
+  mutate(Month_Code = str_extract(Ticker, "[A-Z](?=[0-9]{1,2}$)"))
 
-
-
+# Extract underlying (ie strip out year and month codes)
+futures_df <- futures_df %>%
+  mutate(Underlying = str_remove(Ticker, "[A-Z][0-9]{1,2}$"))
 
 
 
 
 ####################### FIND MOST LIQUID CONTRACTS #######################
 
-# Find biggest volume contracts on each day
-liquid_contract_df <- futures_df %>%
-  group_by(Date, Underlying) %>%
-  slice(which.max(Volume)) %>%
-  ungroup()
-
-liquid_contract_df <- liquid_contract_df %>%
-  group_by(Underlying) %>%
-  arrange(Date) %>%
-  mutate(
-    Same_Contract = Ticker == lag(Ticker, default = first(Ticker)),
-    Contract_Group = cumsum(!Same_Contract),
-  ) %>%
-  ungroup()
-
-liquid_contract_df <- liquid_contract_df %>%
-  group_by(Underlying, Contract_Group) %>%
-  summarise(
-    Ticker = first(Ticker),
-    Start_Date = min(Date),
-    End_Date = max(Date),
-    Count = n(),
-    .groups = "drop"
-  ) %>%
-  arrange(Underlying, Start_Date)
 
 ######################## CALCULATE RETURN SERIES ########################
