@@ -4,6 +4,8 @@ suppressMessages({
   library(readr)
   library(dplyr)
   library(stringr)
+  library(tidyr)
+  library(lubridate)
 })
 
 ############################### FUNCTIONS ###############################
@@ -110,7 +112,8 @@ futures_df <- futures_df %>%
 liquid_df <- futures_df %>%
   group_by(Date, Underlying) %>%
   slice(which.max(Volume)) %>%
-  ungroup()
+  ungroup() %>%
+  select(Date, Ticker, Underlying, Volume)
 
 # Create groups for run-length analysis
 run_length_df <- liquid_df %>%
@@ -132,5 +135,38 @@ run_length_df <- run_length_df %>%
     .groups = "drop"
   ) %>%
   arrange(Underlying, Start_Date)
+
+######################### IDENTIFY MISSING DATA #########################
+
+# Generate a complete set of trading dates
+all_dates <- seq.Date(from = min(futures_df$Date), to = max(futures_df$Date), by = "day")
+all_dates <- all_dates[wday(all_dates) %in% 2:6]
+
+# Complete data for all tickers
+complete_df <- futures_df %>%
+  group_by(Underlying, Ticker) %>%
+  complete(Date = all_dates) %>%
+  ungroup()
+
+# Remove initial NA values for each ticker
+complete_df <- complete_df %>%
+  group_by(Ticker) %>%
+  filter(cumsum(!is.na(Price)) > 0) %>%
+  ungroup()
+
+# Identify missing data points
+missing_data_df <- complete_df %>%
+  filter(is.na(Price)) %>%
+  select(Date, Ticker, Underlying)
+
+# Summarise missing data
+missing_summary_df <- missing_data_df %>%
+  group_by(Underlying) %>%
+  summarise(
+    Missing_Dates = n(),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(Missing_Dates))
+
 
 ######################## CALCULATE RETURN SERIES ########################
