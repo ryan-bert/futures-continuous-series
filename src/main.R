@@ -22,8 +22,10 @@ get_contract_year <- function(date, year_code) {
   if (year_code >= 10) {
 
     # Look for the closest VALID matches in 1900s or 2000s
-    candidate_years <- c(1900 + year_code, 2000 + year_code)
-    valid_years <- candidate_years[candidate_years >= data_year]
+    valid_years <- seq(1900, 2999, by = 1)
+    valid_years <- valid_years[
+      which(valid_years %% 100 == year_code & valid_years >= data_year)
+    ]
     
     # Return the first valid year
     if (length(valid_years) > 0) {
@@ -94,6 +96,13 @@ futures_df <- futures_df %>%
     month_code_map %>% select(Month_Code, Contract_Month),
     by = "Month_Code"
   )
+
+# Re-format tickers to more readable format Underlying_ContractMonth_ContractYear
+futures_df <- futures_df %>%
+  mutate(
+    Ticker = paste0(Underlying, "_", Contract_Month, "_", Contract_Year)
+  ) %>%
+  select(Date, Ticker, Underlying, Price, Volume)
 
 ####################### FIND MOST LIQUID CONTRACTS #######################
 
