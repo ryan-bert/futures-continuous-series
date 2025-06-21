@@ -159,7 +159,7 @@ prior_day_df <- liquid_df %>%
 required_df <- required_df %>%
   bind_rows(prior_day_df)
 
-######################### IDENTIFY MISSING DATA #########################
+########################## HANDLE MISSING DATA ##########################
 
 # Summmaise date ranges for each ticker
 date_summary_df <- futures_df %>%
@@ -175,37 +175,29 @@ date_summary_df <- futures_df %>%
 all_dates <- seq.Date(from = min(futures_df$Date), to = max(futures_df$Date), by = "day")
 all_dates <- all_dates[wday(all_dates) %in% 2:6]
 
-# Complete data for all tickers
-complete_df <- futures_df %>%
-  group_by(Underlying, Ticker) %>%
-  complete(Date = all_dates) %>%
-  ungroup()
-
-# Remove anything out of original date range
-complete_df <- complete_df %>%
-  left_join(date_summary_df, by = "Ticker") %>%
-  filter(Date >= Start_Date & Date <= End_Date) %>%
-  select(-Start_Date, -End_Date)
-
-# Identify missing data points
-missing_data_df <- complete_df %>%
-  filter(is.na(Price)) %>%
-  select(Date, Ticker, Underlying)
-
-# Summarise missing data
-missing_summary_df <- missing_data_df %>%
-  group_by(Underlying) %>%
-  summarise(
-    Missing_Dates = n(),
-    .groups = "drop"
-  ) %>%
-  arrange(desc(Missing_Dates))
-
 # Check for any dates with no liquid contracts
 missing_liquidity_df <- liquid_df %>%
   select(Date, Underlying, Ticker) %>%
   group_by(Underlying) %>%
   complete(Date = all_dates) %>%
   filter(is.na(Ticker))
+
+# Check for missing required data
+missing_required_df <- required_df %>%
+  select(Date, Underlying, Ticker) %>%
+  anti_join(
+    futures_df %>% select(Date, Underlying, Ticker),
+    by = c("Date", "Underlying", "Ticker")
+  ) %>%
+  filter(Date %in% all_dates)
+
+# Add required missing data
+futures_df <- futures_df %>%
+  bind_rows(missing_required_df) %>%
+  group_by(Ticker) %>%
+  arrange(Date) %>%
+  mutate(Volume = ifelse(is.na(Volume), 0, Volume)) %>%
+  fill(Price, .direction = "down")
+  
 
 ######################## CALCULATE RETURN SERIES ########################
