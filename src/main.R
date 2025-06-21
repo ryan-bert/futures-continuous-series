@@ -198,6 +198,5 @@ futures_df <- futures_df %>%
   arrange(Date) %>%
   mutate(Volume = ifelse(is.na(Volume), 0, Volume)) %>%
   fill(Price, .direction = "down")
-  
 
 ######################## CALCULATE RETURN SERIES ########################
