@@ -106,5 +106,31 @@ futures_df <- futures_df %>%
 
 ####################### FIND MOST LIQUID CONTRACTS #######################
 
+# Find most liquid contracts per day (use which.max)
+liquid_df <- futures_df %>%
+  group_by(Date, Underlying) %>%
+  slice(which.max(Volume)) %>%
+  ungroup()
+
+# Create groups for run-length analysis
+run_length_df <- liquid_df %>%
+  group_by(Underlying) %>%
+  arrange(Date) %>%
+  mutate(
+    Ticker_Change = Ticker != lag(Ticker, default = first(Ticker)),
+    Run_ID = cumsum(Ticker_Change)
+  ) %>%
+  ungroup()
+
+# Analyze run-lengths of liquid tickers for each underlying
+run_length_df <- run_length_df %>%
+  group_by(Underlying, Ticker, Run_ID) %>%
+  summarise(
+    Start_Date = min(Date),
+    End_Date = max(Date),
+    Run_Length = n(),
+    .groups = "drop"
+  ) %>%
+  arrange(Underlying, Start_Date)
 
 ######################## CALCULATE RETURN SERIES ########################
