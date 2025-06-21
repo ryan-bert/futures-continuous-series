@@ -1,8 +1,46 @@
+rm(list = ls())
+
 suppressMessages({
   library(readr)
   library(dplyr)
   library(stringr)
+  library(tictoc)
 })
+
+############################### FUNCTIONS ###############################
+
+get_contract_year <- function(date, year_code) {
+
+  # Return NA if any arguments are NA
+  if (is.na(date) || is.na(year_code)) {
+    return(NA)
+  }
+
+  # Extract the year from timestamp
+  data_year <- as.integer(format(date, "%Y"))
+  
+  # Check if year code is 2 digits
+  if (year_code >= 10) {
+
+    # Look for the closest VALID matches in 1900s or 2000s
+    candidate_years <- c(1900 + year_code, 2000 + year_code)
+    valid_years <- candidate_years[candidate_years >= data_year]
+    
+    # Return the first valid year
+    if (length(valid_years) > 0) {
+      return(valid_years[1])
+    } else {
+      # If no valid years, return NA
+      return(NA)
+    }
+  }
+  
+  # If year code is 1 digit, find closest match in the next 20 years
+  candidate_years <- data_year:(data_year + 20)
+  match_year <- candidate_years[which(candidate_years %% 10 == year_code)][1]
+  
+  return(match_year)
+}
 
 ########################### LOAD & FILTER DATA ###########################
 
@@ -25,7 +63,7 @@ futures_df <- futures_df %>%
   filter(!grepl("-", Ticker)) %>%
   filter(!grepl(":", Ticker))
 
-######################### FORMAT CONTRACT NAMES #########################
+######################### EXTRACT CONTRACT DATA #########################
 
 # Extract year code (last 1 or 2 numbers)
 futures_df <- futures_df %>%
@@ -41,8 +79,22 @@ futures_df <- futures_df %>%
 futures_df <- futures_df %>%
   mutate(Underlying = str_remove(Ticker, "[A-Z][0-9]{1,2}$"))
 
+# Get contract year based on date and codes
+futures_df <- futures_df %>%
+  mutate(
+    Contract_Year = mapply(get_contract_year, Date, Year_Code)
+  )
 
+# Load futures month-code map
+month_code_path <- file.path(current_dir, "../utils/month_code_map.csv")
+month_code_map <- read_csv(month_code_path, show_col_types = FALSE)
 
+# Left join data with month code map
+futures_df <- futures_df %>%
+  left_join(
+    month_code_map %>% select(Month_Code, Contract_Month),
+    by = "Month_Code"
+  )
 
 ####################### FIND MOST LIQUID CONTRACTS #######################
 
