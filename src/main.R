@@ -3,6 +3,8 @@ suppressMessages({
   library(readr)
 })
 
+########################### LOAD & FILTER DATA ###########################
+
 # Define paths
 current_dir <- dirname(sys.frame(1)$ofile)
 cme_data_path <- file.path(current_dir, "../data/CME_raw_data.csv")
@@ -22,10 +24,17 @@ futures_df <- futures_df %>%
   filter(!grepl("-", Ticker)) %>%
   filter(!grepl(":", Ticker))
 
-# Extract underlying future
-futures_df <- futures_df %>%
-  mutate(Underlying = gsub("..$", "", Ticker)) %>%
-  select(Date, Ticker, Underlying, Price, Volume)
+######################### FORMAT CONTRACT NAMES #########################
+
+
+
+
+
+
+
+
+
+####################### FIND MOST LIQUID CONTRACTS #######################
 
 # Find biggest volume contracts on each day
 liquid_contract_df <- futures_df %>%
@@ -33,4 +42,24 @@ liquid_contract_df <- futures_df %>%
   slice(which.max(Volume)) %>%
   ungroup()
 
-#! Include 2 year-digits in Ticker (to avoid duplicates)
+liquid_contract_df <- liquid_contract_df %>%
+  group_by(Underlying) %>%
+  arrange(Date) %>%
+  mutate(
+    Same_Contract = Ticker == lag(Ticker, default = first(Ticker)),
+    Contract_Group = cumsum(!Same_Contract),
+  ) %>%
+  ungroup()
+
+liquid_contract_df <- liquid_contract_df %>%
+  group_by(Underlying, Contract_Group) %>%
+  summarise(
+    Ticker = first(Ticker),
+    Start_Date = min(Date),
+    End_Date = max(Date),
+    Count = n(),
+    .groups = "drop"
+  ) %>%
+  arrange(Underlying, Start_Date)
+
+######################## CALCULATE RETURN SERIES ########################
