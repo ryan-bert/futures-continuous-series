@@ -201,5 +201,11 @@ missing_summary_df <- missing_data_df %>%
   ) %>%
   arrange(desc(Missing_Dates))
 
+# Check for any dates with no liquid contracts
+missing_liquidity_df <- liquid_df %>%
+  select(Date, Underlying, Ticker) %>%
+  group_by(Underlying) %>%
+  complete(Date = all_dates) %>%
+  filter(is.na(Ticker))
 
 ######################## CALCULATE RETURN SERIES ########################
