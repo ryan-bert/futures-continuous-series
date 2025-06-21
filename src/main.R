@@ -4,7 +4,6 @@ suppressMessages({
   library(readr)
   library(dplyr)
   library(stringr)
-  library(tictoc)
 })
 
 ############################### FUNCTIONS ###############################
